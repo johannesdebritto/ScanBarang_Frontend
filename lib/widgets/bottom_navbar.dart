@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class BottomNavBar extends StatelessWidget {
+class BottomNavBar extends StatefulWidget {
   final int currentIndex;
   final Function(int) onTap;
 
@@ -12,12 +13,17 @@ class BottomNavBar extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<BottomNavBar> createState() => _BottomNavBarState();
+}
+
+class _BottomNavBarState extends State<BottomNavBar> {
+  @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(
-          horizontal: 40, vertical: 5), // Jarak kiri-kanan & atas-bawah kecil
+          horizontal: 80, vertical: 5), // Jarak kiri-kanan & atas-bawah kecil
       padding: const EdgeInsets.symmetric(
-          horizontal: 40, vertical: 0.1), // Mengurangi padding vertikal
+          horizontal: 20, vertical: 0.1), // Mengurangi padding vertikal
       decoration: BoxDecoration(
         color: const Color(0xFF007BFF), // Warna background navbar
         borderRadius: BorderRadius.circular(60), // Lengkungkan semua sudut
@@ -34,8 +40,8 @@ class BottomNavBar extends StatelessWidget {
         borderRadius:
             BorderRadius.circular(60), // Pastikan konten mengikuti lengkungan
         child: BottomNavigationBar(
-          currentIndex: currentIndex,
-          onTap: onTap,
+          currentIndex: widget.currentIndex,
+          onTap: widget.onTap,
           type: BottomNavigationBarType.fixed, // Tampilan item statis
           backgroundColor:
               Colors.transparent, // Menghilangkan background default
@@ -45,25 +51,20 @@ class BottomNavBar extends StatelessWidget {
           showSelectedLabels: true, // Menampilkan label pada item yang dipilih
           showUnselectedLabels:
               false, // Menyembunyikan label pada item yang tidak dipilih
+          selectedLabelStyle:
+              GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
           items: [
             BottomNavigationBarItem(
               icon: _buildIcon(
                 icon: Iconsax.home_2_outline,
-                isSelected: currentIndex == 0,
+                isSelected: widget.currentIndex == 0,
               ),
               label: 'Beranda',
             ),
             BottomNavigationBarItem(
               icon: _buildIcon(
-                icon: Iconsax.box_1_outline,
-                isSelected: currentIndex == 1,
-              ),
-              label: 'Barang',
-            ),
-            BottomNavigationBarItem(
-              icon: _buildIcon(
                 icon: Iconsax.clock_outline,
-                isSelected: currentIndex == 2,
+                isSelected: widget.currentIndex == 2,
               ),
               label: 'Riwayat',
             ),

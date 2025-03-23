@@ -1,5 +1,12 @@
-import 'package:aplikasi_scan_barang/pages/barangpages/form_barang.dart';
+import 'dart:convert';
+import 'package:aplikasi_scan_barang/pages/barangpages/product_card_widget.dart';
+import 'package:aplikasi_scan_barang/pages/barangpages/tambah_barang_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+import '/widgets/custom_app_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DisplayBarangScreen extends StatefulWidget {
   const DisplayBarangScreen({super.key});
@@ -9,26 +16,63 @@ class DisplayBarangScreen extends StatefulWidget {
 }
 
 class _DisplayBarangScreenState extends State<DisplayBarangScreen> {
-  final List<String> _brands = [
-    'Hardwell',
-    'Yamaha',
-    'Huper',
-    'Shure',
-    'Generic',
-    'Canare',
-  ];
-
+  List<String> _brands = ['Semua'];
   String? _selectedBrand;
-  bool _isDropdownOpen =
-      false; // Untuk memantau apakah dropdown terbuka atau tidak
+  bool _isDropdownOpen = false;
   OverlayEntry? _dropdownOverlay;
+  String _searchQuery = '';
+  final GlobalKey _filterButtonKey = GlobalKey();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBrands();
+  }
+
+  Future<void> _fetchBrands() async {
+    final String apiUrl = "${dotenv.env['BASE_URL']}/api/barang/brands";
+
+    try {
+      String? token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token == null) {
+        print("🔴 Gagal mendapatkan token Firebase.");
+        throw Exception("Gagal mendapatkan token.");
+      }
+
+      final response = await http.get(
+        Uri.parse(apiUrl),
+        headers: {
+          'Authorization': 'Bearer $token', // ✅ Kirim token ke backend
+        },
+      );
+
+      print("🟡 Response dari server: ${response.statusCode}");
+      print("🟡 Body response: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final List<dynamic> brandList = json.decode(response.body);
+
+        setState(() {
+          _brands.clear();
+          _brands.add("Semua"); // ✅ Tambahkan opsi "Semua" di awal
+          _brands.addAll(brandList.map((brand) => brand['name'].toString()));
+
+          _selectedBrand ??=
+              "Semua"; // ✅ Pilih "Semua" sebagai default jika belum dipilih
+          _isLoading = false;
+        });
+      } else {
+        throw Exception("Failed to load brands");
+      }
+    } catch (e) {
+      print("🔴 Error saat mengambil brands: $e");
+      setState(() => _isLoading = false);
+    }
+  }
 
   void _toggleDropdown(BuildContext context, RenderBox buttonBox) {
-    if (_isDropdownOpen) {
-      _closeDropdown();
-    } else {
-      _openDropdown(context, buttonBox);
-    }
+    _isDropdownOpen ? _closeDropdown() : _openDropdown(context, buttonBox);
   }
 
   void _openDropdown(BuildContext context, RenderBox buttonBox) {
@@ -38,34 +82,32 @@ class _DisplayBarangScreenState extends State<DisplayBarangScreen> {
 
     _dropdownOverlay = OverlayEntry(
       builder: (context) => Positioned(
-        top: position.dy +
-            size.height +
-            8, // Tambahkan jarak antara dropdown dan tombol
-        left: position.dx - 100, // Geser ke kiri untuk memperluas dropdown
+        top: position.dy + size.height + 8,
+        left: position.dx - 100,
         child: Material(
           elevation: 4,
           borderRadius: BorderRadius.circular(8),
           child: Container(
-            width: size.width + 100, // Perluas lebar dropdown ke kiri
+            width: size.width + 100,
             decoration: BoxDecoration(
-              color: const Color(0xFFced4da), // Warna background dropdown
+              color: const Color(0xFFced4da),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: ListView.builder(
+            child: ListView(
               padding: EdgeInsets.zero,
               shrinkWrap: true,
-              itemCount: _brands.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(_brands[index]),
-                  onTap: () {
-                    setState(() {
-                      _selectedBrand = _brands[index];
-                    });
-                    _closeDropdown();
-                  },
-                );
-              },
+              children: _brands
+                  .map((brand) => ListTile(
+                        title: Text(
+                          brand,
+                          style: GoogleFonts.inter(fontSize: 14),
+                        ),
+                        onTap: () {
+                          setState(() => _selectedBrand = brand);
+                          _closeDropdown();
+                        },
+                      ))
+                  .toList(),
             ),
           ),
         ),
@@ -73,138 +115,116 @@ class _DisplayBarangScreenState extends State<DisplayBarangScreen> {
     );
 
     overlay.insert(_dropdownOverlay!);
-    setState(() {
-      _isDropdownOpen = true;
-    });
+    setState(() => _isDropdownOpen = true);
   }
 
   void _closeDropdown() {
     _dropdownOverlay?.remove();
     _dropdownOverlay = null;
-    setState(() {
-      _isDropdownOpen = false;
-    });
+    if (_isDropdownOpen) {
+      setState(() => _isDropdownOpen = false);
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(16),
-            top: Radius.circular(16),
-          ),
-          child: AppBar(
-            backgroundColor: const Color(0xFF3a0ca3),
-            elevation: 2,
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                const Icon(Icons.inventory, color: Colors.white, size: 28),
-                const SizedBox(width: 8),
-                const Text(
-                  'Data Barang',
-                  style: TextStyle(fontSize: 20, color: Colors.white),
-                ),
-              ],
+  Widget _buildSearchBar() => Expanded(
+        child: SizedBox(
+          height: 48,
+          child: TextField(
+            onChanged: (value) => setState(() => _searchQuery = value),
+            decoration: InputDecoration(
+              hintText: 'Cari',
+              hintStyle: GoogleFonts.inter(fontSize: 14),
+              prefixIcon: const Icon(Icons.search),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
             ),
-            centerTitle: false,
+            style: GoogleFonts.inter(fontSize: 14),
           ),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Cari',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
+      );
+
+  Widget _buildFilterButton(BuildContext context) => SizedBox(
+        key: _filterButtonKey,
+        height: 48,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4cc9f0),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.0)),
+          ),
+          onPressed: () {
+            final renderBox = _filterButtonKey.currentContext
+                ?.findRenderObject() as RenderBox?;
+            if (renderBox != null) {
+              _toggleDropdown(context, renderBox);
+            }
+          },
+          child: Row(
+            children: [
+              const Icon(Icons.filter_alt, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                _selectedBrand ?? 'Filter',
+                style: GoogleFonts.inter(fontSize: 14, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: CustomAppBar(
+          title: 'Data Barang',
+          icon: Icons.inventory,
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        _buildSearchBar(),
+                        const SizedBox(width: 8.0),
+                        Builder(
+                          builder: (context) => _buildFilterButton(context),
                         ),
-                        contentPadding: EdgeInsets.symmetric(
-                            vertical: 12.0,
-                            horizontal: 12.0), // Menambahkan padding vertikal
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ProductCardScreen(
+                        searchQuery: _searchQuery,
+                        selectedBrand:
+                            _selectedBrand == "Semua" ? null : _selectedBrand,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8.0),
-                SizedBox(
-                  height: 48,
-                  child: Builder(
-                    builder: (context) {
-                      return ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4cc9f0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                        ),
-                        onPressed: () {
-                          final buttonBox =
-                              context.findRenderObject() as RenderBox;
-                          _toggleDropdown(context, buttonBox);
-                        },
-                        child:
-                            const Icon(Icons.filter_alt, color: Colors.white),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            Spacer(),
-            // Menampilkan pesan "Barang masih kosong"
-            Center(
-              child: Text(
-                'Barang masih kosong',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF757575), // Abu-abu gelap
+                  ],
                 ),
               ),
-            ),
-            Spacer(),
-          ],
-        ),
-      ),
-      floatingActionButton: Container(
-        width: 80, // Lebar FAB
-        height: 80, // Tinggi FAB
-        child: FloatingActionButton(
-          onPressed: () {
-            // Navigasi ke FormBarangScreen
-            Navigator.push(
+        floatingActionButton: SizedBox(
+          width: 80,
+          height: 80,
+          child: FloatingActionButton(
+            onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const FormBarangScreen(),
+                builder: (context) => TambahBarangScreen(
+                    itemData:
+                        null), // ✅ Tambahkan itemData null saat menambah barang baru
               ),
-            );
-          },
-          backgroundColor: const Color(0xFF3a0ca3),
-          elevation: 6, // Menambah elevasi jika diperlukan
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0), // Sudut melengkung
-          ),
-          heroTag: 'uniqueHeroTag', // Tag unik untuk menghindari konflik
-          child: const Icon(
-            Icons.add,
-            color: Colors.white, // Warna ikon
-            size: 40, // Ukuran ikon
+            ),
+            backgroundColor: const Color(0xFF3a0ca3),
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0)),
+            heroTag: 'uniqueHeroTag',
+            child: const Icon(Icons.add, color: Colors.white, size: 40),
           ),
         ),
-      ),
-    );
-  }
+      );
 }

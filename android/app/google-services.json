@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "628105003988",
+    "project_id": "scanbarangauth",
+    "storage_bucket": "scanbarangauth.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:628105003988:android:58578ef5b19cdd6f6a4c41",
+        "android_client_info": {
+          "package_name": "com.example.aplikasi_scan_barang"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhwzYLn4oMDERd0E-WFSGjqC3cgIpZW00"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
