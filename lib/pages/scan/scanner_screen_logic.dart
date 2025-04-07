@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'package:aplikasi_scan_barang/main.dart';
+
+import 'package:aplikasi_scan_barang/pages/berandapages/detail_event.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,8 +9,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ScannerScreenLogic {
   final BuildContext context;
+  final String idEvent; // Tetap gunakan String untuk fleksibilitas
 
-  ScannerScreenLogic(this.context);
+  ScannerScreenLogic(
+      this.context, this.idEvent); // Parameter idEvent tetap String
 
   bool isDialogOpen = false;
   String? scannedData;
@@ -38,38 +43,57 @@ class ScannerScreenLogic {
     print("📤 Mengirim request ke: $url");
     print("📌 Data yang dikirim: { 'qr_code': '$qrCode' }");
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({'qr_code': qrCode}),
-    );
+    // Tampilkan loading modal
+    showLoadingDialog();
 
-    print("🔵 Status Code: ${response.statusCode}");
-    print("📝 Response Body: ${response.body}");
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'qr_code': qrCode}),
+      );
 
-    String message;
-    if (response.statusCode == 201) {
-      message = "✅ QR Code berhasil disimpan!";
-    } else if (response.statusCode == 409) {
-      message = "⚠️ QR Code ini sudah digunakan!";
-    } else if (response.statusCode == 403) {
-      message = "❌ Token tidak valid, silakan login ulang.";
-    } else {
-      message = "❌ Terjadi kesalahan: ${response.body}";
+      print("🔵 Status Code: ${response.statusCode}");
+      print("📝 Response Body: ${response.body}");
+
+      String message;
+      if (response.statusCode == 201) {
+        message = "✅ QR Code berhasil disimpan!";
+      } else if (response.statusCode == 409) {
+        message = "⚠️ QR Code ini sudah digunakan!";
+      } else if (response.statusCode == 403) {
+        message = "❌ Token tidak valid, silakan login ulang.";
+      } else {
+        message = "❌ Terjadi kesalahan: ${response.body}";
+      }
+
+      // Tutup loading modal
+      closeDialog();
+
+      // Tampilkan pesan ke user
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+
+      // Jika sukses, cukup tutup modal tanpa keluar dari halaman
+      if (response.statusCode == 201) {
+        startScanner(); // 🔥 Kamera aktif kembali untuk scan
+      }
+    } catch (e) {
+      closeDialog();
+      print("❌ Gagal menghubungi server: $e");
+      showMessageDialog(
+          "❌ Error", "Tidak bisa menghubungi server, coba lagi nanti.");
     }
-
-    // Tutup dialog
-    closeDialog();
-
-    // Tampilkan pesan
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void showResultDialog(String result) {
+  void showResultDialog(String result, bool isSelesai) {
+    String title = isSelesai ? "Barang Selesai" : "Hasil Scan";
+    String buttonText = isSelesai ? "Selesai" : "Simpan";
+    String displayText = isSelesai ? "Barang selesai digunakan" : result;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -79,34 +103,46 @@ class ScannerScreenLogic {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.qr_code_scanner,
-                      color: const Color.fromARGB(255, 9, 9, 9)),
-                  SizedBox(width: 8),
-                  Text(
-                    "Hasil Scan",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.qr_code_scanner, color: Colors.black),
+                SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             Divider(color: Colors.grey[300], thickness: 1),
             SizedBox(height: 16),
-            Text(result, style: TextStyle(fontSize: 16)),
+            Text(displayText, style: TextStyle(fontSize: 16)),
             SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 dialogButton("Batal", Colors.red, closeDialog),
                 SizedBox(width: 8),
-                dialogButton("Simpan", Colors.green, () async {
-                  await sendScanResult(result);
+                dialogButton(buttonText, Colors.green, () async {
+                  closeDialog(); // Tutup modal sebelum mulai proses
+
+                  // Lanjutkan proses jika idEvent tidak kosong hanya untuk completeQRCode
+                  if (isSelesai) {
+                    if (idEvent.isEmpty) {
+                      // Jika idEvent kosong, tampilkan pesan error
+                      print("❌ Error: idEvent is empty");
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text("❌ ID Event tidak valid: ID kosong")),
+                      );
+                      return; // Keluar dari fungsi jika idEvent kosong
+                    }
+                    await completeQRCode(result, idEvent,
+                        context); // Gunakan idEvent yang masih String
+                  } else {
+                    await sendScanResult(
+                        result); // Menyimpan QR Code tanpa memerlukan idEvent
+                  }
                 }),
               ],
             ),
@@ -127,10 +163,7 @@ class ScannerScreenLogic {
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
+            fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
       ),
     );
   }
@@ -141,15 +174,44 @@ class ScannerScreenLogic {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(title,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        content: Text(message, style: TextStyle(fontSize: 16)),
+        title: Column(
+          children: [
+            Text(
+              title,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center, // 🔥 Teks judul di tengah
+            ),
+            Divider(color: Colors.grey[300], thickness: 1), // 🔥 Garis pemisah
+          ],
+        ),
+        content: Text(
+          message,
+          style: TextStyle(fontSize: 16),
+          textAlign: TextAlign.center, // 🔥 Teks isi di tengah
+        ),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: Text("OK", style: TextStyle(fontSize: 14)),
+          Center(
+            // 🔥 Tombol di tengah
+            child: TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.green, // 🔥 Tombol hijau
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                "OK",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // 🔥 Teks putih
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -161,6 +223,229 @@ class ScannerScreenLogic {
       Navigator.of(context, rootNavigator: true).pop();
       isDialogOpen = false;
       scannedData = null;
+    }
+  }
+
+  // 🔥 Loading Modal (Fix tanpa garis kuning dan bisa ditutup)
+  void showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  "Menyimpan QR Barang...",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 🔥 Fungsi untuk mengaktifkan scanner kembali setelah simpan berhasil
+  void startScanner() {
+    print("📸 Scanner aktif kembali...");
+  }
+
+//loadingsimpan
+// 🔥 Loading Modal saat mengecek QR Code sebelum keluar halaman
+  void showLoadingDialogSimpan() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  "Mengecek Data...",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void closeScannerScreen({String? idEvent, bool isSelesai = false}) async {
+    print(
+        "📌 closeScannerScreen dipanggil dengan idEvent: $idEvent, isSelesai: $isSelesai");
+
+    final String? baseUrl = dotenv.env['BASE_URL'];
+    if (baseUrl == null) {
+      print("❌ BASE_URL tidak ditemukan di .env");
+      return;
+    }
+
+    String? token = await getToken();
+    if (token == null) {
+      showMessageDialog("❌ Error", "Token tidak valid, silakan login ulang.");
+      return;
+    }
+
+    final String url = "$baseUrl/api/event/check-qrcode";
+    print("📤 Mengecek QR di event dengan request ke: $url");
+
+    // Tampilkan loading sebelum pengecekan
+    showLoadingDialogSimpan();
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print("🔵 Status Code: ${response.statusCode}");
+      print("📝 Response Body: ${response.body}");
+
+      closeDialog();
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['exists'] == true) {
+        print(
+            "📌 idEvent saat closeScannerScreen dipanggil: $idEvent, isSelesai: $isSelesai");
+
+        if (idEvent != null && idEvent.trim().isNotEmpty) {
+          if (isSelesai == true) {
+            print("✅ Navigasi ke DetailEventScreen SELESAI: $idEvent");
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    DetailEventScreen(idEvent: idEvent, isSelesai: true),
+              ),
+            );
+          } else {
+            print("✅ Navigasi ke DetailEventScreen BIASA: $idEvent");
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DetailEventScreen(idEvent: idEvent),
+              ),
+            );
+          }
+        } else {
+          print("🔄 idEvent kosong, kembali ke Beranda");
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+                builder: (context) => MainScreen(selectedIndex: 0)),
+            (route) => false,
+          );
+        }
+      } else {
+        showMessageDialog("⚠️ Peringatan", "Belum ada barang yang di-scan!");
+      }
+    } catch (e) {
+      closeDialog();
+      print("❌ Gagal menghubungi server: $e");
+      showMessageDialog(
+          "❌ Error", "Tidak bisa menghubungi server, coba lagi nanti.");
+    }
+  }
+
+  Future<void> completeQRCode(
+      String qrCode, String idEvent, BuildContext context) async {
+    // Ganti int menjadi String
+    final String? baseUrl = dotenv.env['BASE_URL'];
+    if (baseUrl == null) {
+      print("❌ BASE_URL tidak ditemukan di .env");
+      return;
+    }
+
+    String? token = await getToken();
+    if (token == null) {
+      showMessageDialog("❌ Error", "Token tidak valid, silakan login ulang.");
+      return;
+    }
+
+    final String url = "$baseUrl/api/event/scan-complete";
+    print("📤 Mengirim request ke: $url");
+    print(
+        "📌 Data yang dikirim: { 'qr_code': '$qrCode', 'id_event': '$idEvent' }");
+
+    showLoadingDialog();
+
+    try {
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'qr_code': qrCode,
+          'id_event': idEvent // idEvent tetap dalam format String
+        }),
+      );
+
+      closeDialog();
+      print("🔵 Status Code: ${response.statusCode}");
+      print("📝 Response Body: ${response.body}");
+
+      String message;
+      if (response.statusCode == 200) {
+        message = "✅ QR Code berhasil diselesaikan!";
+      } else if (response.statusCode == 404) {
+        message = "⚠️ Event atau QR Code tidak ditemukan.";
+      } else if (response.statusCode == 401) {
+        message = "❌ Token tidak valid, silakan login ulang.";
+      } else {
+        message = "❌ Terjadi kesalahan: ${response.body}";
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+
+      if (response.statusCode == 200) {
+        showMessageDialog("Selesai", "QR Code telah berhasil diselesaikan!");
+        startScanner();
+      }
+    } catch (e) {
+      closeDialog();
+      print("❌ Gagal menghubungi server: $e");
+      showMessageDialog(
+          "❌ Error", "Tidak bisa menghubungi server, coba lagi nanti.");
     }
   }
 }

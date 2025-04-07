@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'event_form_logic.dart';
 
 class EventFormScreen extends StatefulWidget {
-  final EventFormLogic eventFormLogic; // ✅ Tambahkan parameter
+  final EventFormLogic eventFormLogic;
+  final int? eventId; // ✅ Tambahkan eventId untuk edit
 
-  const EventFormScreen({Key? key, required this.eventFormLogic})
+  const EventFormScreen({Key? key, required this.eventFormLogic, this.eventId})
       : super(key: key);
 
   @override
@@ -12,14 +13,19 @@ class EventFormScreen extends StatefulWidget {
 }
 
 class EventFormScreenState extends State<EventFormScreen> {
-  // ✅ Gunakan eventFormLogic yang dikirim dari luar, bukan deklarasi baru
-
   EventFormLogic getLogic() {
-    return widget.eventFormLogic; // ✅ Ambil dari widget agar tetap sinkron
+    return widget.eventFormLogic;
   }
 
-  void simpanEvent(BuildContext context) {
-    widget.eventFormLogic.simpanEvent(context); // ✅ Panggil dari eventFormLogic
+  @override
+  void initState() {
+    super.initState();
+    if (widget.eventId != null) {
+      print("🛠 Memuat data event ID: ${widget.eventId}");
+      widget.eventFormLogic.loadEvent(widget.eventId!).then((_) {
+        setState(() {}); // Pastikan UI ter-refresh setelah data masuk
+      });
+    }
   }
 
   @override

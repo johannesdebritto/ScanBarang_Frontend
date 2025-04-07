@@ -17,16 +17,16 @@ class EventFormLogic {
   TextEditingController get cityController => _cityController;
   TextEditingController get provinceController => _provinceController;
 
-  Future<bool> simpanEvent(BuildContext context) async {
-    print("🔍 Debug: Fungsi simpanEvent() dipanggil");
+  Future<bool> simpanAtauEditEvent(BuildContext context, {int? eventId}) async {
+    print("🔍 Debug: Fungsi simpanAtauEditEvent() dipanggil");
 
     final String namaEvent = _namaEventController.text;
-    final String tanggal = _tanggalController.text;
+    final String inputTanggal = _tanggalController.text;
     final String kota = _cityController.text;
     final String kabupaten = _provinceController.text;
 
     if (namaEvent.isEmpty ||
-        tanggal.isEmpty ||
+        inputTanggal.isEmpty ||
         kota.isEmpty ||
         kabupaten.isEmpty) {
       print("⚠️ Debug: Ada field yang kosong!");
@@ -45,35 +45,50 @@ class EventFormLogic {
 
     final Map<String, dynamic> eventData = {
       "nama_event": namaEvent,
-      "tanggal": tanggal,
+      "tanggal": inputTanggal, // ⬅️ Tidak dikonversi, langsung dikirim
       "kota": kota,
       "kabupaten": kabupaten,
     };
 
     print("📤 Debug: Data yang dikirim: $eventData");
 
-    // 🚀 Tampilkan modal loading sebelum request
     _showLoadingDialog(context);
 
     try {
-      final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/api/event/simpan"),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-        body: jsonEncode(eventData),
-      );
+      final Uri url = eventId == null
+          ? Uri.parse("${dotenv.env['BASE_URL']}/api/event/simpan")
+          : Uri.parse("${dotenv.env['BASE_URL']}/api/event/update/$eventId");
+
+      final response = eventId == null
+          ? await http.post(
+              url,
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer $token",
+              },
+              body: jsonEncode(eventData),
+            )
+          : await http.put(
+              url,
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer $token",
+              },
+              body: jsonEncode(eventData),
+            );
 
       print("🛜 Debug: Status code: ${response.statusCode}");
       print("🔹 Debug: Response body: ${response.body}");
 
-      // ❌ Tutup modal setelah request selesai
       Navigator.pop(context);
 
-      if (response.statusCode == 201) {
-        print("✅ Debug: Event berhasil disimpan!");
-        _showSnackbar(context, "Event berhasil disimpan!", Colors.green,
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        print(
+            "✅ Debug: Event berhasil ${eventId == null ? "disimpan" : "diedit"}!");
+        _showSnackbar(
+            context,
+            "Event berhasil ${eventId == null ? "disimpan" : "diedit"}!",
+            Colors.green,
             LucideIcons.circleCheck);
         return true;
       } else {
@@ -83,7 +98,6 @@ class EventFormLogic {
         return false;
       }
     } catch (error) {
-      // ❌ Tutup modal jika terjadi error
       Navigator.pop(context);
       print("🚨 Debug: Terjadi error: $error");
       _showSnackbar(
@@ -126,6 +140,63 @@ class EventFormLogic {
         );
       },
     );
+  }
+
+//load
+  Future<void> loadEvent(int eventId) async {
+    print("🔍 Debug: Memuat event dengan ID $eventId");
+
+    String? token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (token == null) {
+      print("🚨 Debug: Token tidak ditemukan!");
+      return;
+    }
+
+    final Uri url =
+        Uri.parse("${dotenv.env['BASE_URL']}/api/event/ambil-edit/$eventId");
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      print("🛜 Debug: Response status: ${response.statusCode}");
+      print("📥 Debug: Response body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print("✅ Debug: Data event berhasil dimuat: $data");
+
+        // Fungsi untuk format tanggal dari ISO 8601 ke DD-MM-YYYY
+        String formatTanggal(String isoDate) {
+          DateTime date = DateTime.parse(isoDate);
+          return "${date.day.toString().padLeft(2, '0')}-"
+              "${date.month.toString().padLeft(2, '0')}-"
+              "${date.year}";
+        }
+
+        _namaEventController.text = data['nama_event'] ?? '';
+
+        // Ubah format tanggal sebelum masuk ke controller
+        _tanggalController.text =
+            data['tanggal'] != null ? formatTanggal(data['tanggal']) : '';
+
+        _cityController.text = data['kota'] ?? '';
+        _provinceController.text = data['kabupaten'] ?? '';
+
+        print("📌 Debug: Nama Event: ${_namaEventController.text}");
+        print("📌 Debug: Tanggal Event: ${_tanggalController.text}");
+        print("📌 Debug: Kota: ${_cityController.text}");
+        print("📌 Debug: Kabupaten: ${_provinceController.text}");
+      } else {
+        print("❌ Debug: Gagal memuat event: ${response.body}");
+      }
+    } catch (error) {
+      print("🚨 Debug: Terjadi kesalahan saat memuat event: $error");
+    }
   }
 
   // 🔥 Fungsi Snackbar Custom dengan Google Fonts

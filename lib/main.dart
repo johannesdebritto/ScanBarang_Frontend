@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/otorisasipages/login.dart';
-import 'pages/historypages/history.dart';
+import 'pages/historypages/history_screen.dart';
 import 'pages/berandapages/beranda.dart';
 import 'widgets/bottom_navbar.dart';
 import 'package:firebase_core/firebase_core.dart';

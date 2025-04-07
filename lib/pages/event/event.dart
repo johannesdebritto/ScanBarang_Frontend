@@ -4,15 +4,17 @@ import 'package:flutter/material.dart';
 import 'event_form_logic.dart'; // Import EventFormLogic
 
 class EventScreen extends StatefulWidget {
-  const EventScreen({super.key});
+  final int? eventId; // ✅ Tambahkan eventId
+
+  const EventScreen(
+      {super.key, this.eventId}); // ✅ Pastikan eventId bisa diterima
 
   @override
   State<EventScreen> createState() => _EventScreenState();
 }
 
 class _EventScreenState extends State<EventScreen> {
-  final EventFormLogic _eventFormLogic =
-      EventFormLogic(); // ✅ Tambahkan logic form
+  final EventFormLogic _eventFormLogic = EventFormLogic();
 
   @override
   Widget build(BuildContext context) {
@@ -50,11 +52,16 @@ class _EventScreenState extends State<EventScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               EventFormScreen(
-                  eventFormLogic:
-                      _eventFormLogic), // ✅ Pastikan eventFormLogic dikirim
+                eventFormLogic: _eventFormLogic,
+                eventId: widget.eventId, // ✅ Kirim eventId ke form
+              ),
               const SizedBox(height: 20),
+              // ✅ Pastikan eventId dikirim ke tombol!
               EventButtonScreen(
-                  eventFormLogic: _eventFormLogic), // ✅ Perbaikan di sini
+                eventFormLogic: _eventFormLogic,
+                eventId: widget
+                    .eventId, // 🔥 Kirim eventId biar tombolnya sesuai mode
+              ),
             ],
           ),
         ),

@@ -1,10 +1,7 @@
-import 'dart:convert';
+import 'package:aplikasi_scan_barang/pages/otorisasipages/login.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '/pages/otorisasipages/login.dart';
-import 'package:icons_plus/icons_plus.dart';
+
+import 'register_logic.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -18,203 +15,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _obscureText = true, _obscureTexts = true, _isLoading = false;
+  bool _obscureText = true, _obscureTexts = true;
+  late RegisterLogic _logic;
 
-  // Validasi form dan registrasi
-  Future<void> _registerUser() async {
-    final username = _usernameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim();
-
-    // Validasi inputan form
-    if (username.isEmpty ||
-        email.isEmpty ||
-        password.isEmpty ||
-        confirmPassword.isEmpty) {
-      _showErrorDialog("Semua Fied Harus Keisi");
-      return;
-    }
-
-    if (password != confirmPassword) {
-      _showErrorDialog("Passwords do not match.");
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Kirim request registrasi ke backend
-      final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/api/auth/register"),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(
-            {'username': username, 'email': email, 'password': password}),
-      );
-
-      if (response.statusCode == 201) {
-        // Setelah registrasi berhasil, kirim email verifikasi
-        await _sendVerificationEmail(email);
-      } else {
-        _showErrorDialog(
-            jsonDecode(response.body)['error'] ?? "An error occurred.");
-      }
-    } catch (_) {
-      _showErrorDialog("Failed to connect to the server.");
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // Mengirim email verifikasi ke pengguna
-  Future<void> _sendVerificationEmail(String email) async {
-    try {
-      final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/api/auth/send-verification-email"),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email}),
-      );
-
-      if (response.statusCode == 200) {
-        _showSuccessDialog(
-            "Regristrasi Berhasil, Cek Email Anda untuk verifikasi.");
-      } else {
-        _showErrorDialog("gagal mengirim email");
-      }
-    } catch (_) {
-      _showErrorDialog("Failed to connect to the server.");
-    }
-  }
-
-// Menampilkan dialog error
-  void _showErrorDialog(String message) {
-    showDialog(
+  @override
+  void initState() {
+    super.initState();
+    _logic = RegisterLogic(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        titlePadding: const EdgeInsets.only(top: 24, left: 24, right: 24),
-        title: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  LucideIcons.circleAlert, // Circle warning dari Lucide Icons
-                  color: Colors.orange,
-                  size: 32,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  "Perhatian!",
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(thickness: 1),
-          ],
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        content: Text(
-          message,
-          style: const TextStyle(fontFamily: 'Inter', fontSize: 16),
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text("OK", style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
+      usernameController: _usernameController,
+      emailController: _emailController,
+      passwordController: _passwordController,
+      confirmPasswordController: _confirmPasswordController,
     );
   }
 
-// Menampilkan dialog sukses
-  void _showSuccessDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        titlePadding: const EdgeInsets.only(top: 24, left: 24, right: 24),
-        title: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  LucideIcons.circleCheck, // Circle check dari Lucide Icons
-                  color: Colors.green,
-                  size: 32,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  "Success",
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(thickness: 1),
-          ],
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        content: Text(
-          message,
-          style: const TextStyle(fontFamily: 'Inter', fontSize: 16),
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: Colors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text("OK", style: TextStyle(fontSize: 16)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // UI untuk tampilan form
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -278,12 +93,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           setState(() => _obscureTexts = !_obscureTexts)),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: _isLoading ? null : _registerUser,
+                    onPressed: _logic.isLoading ? null : _logic.registerUser,
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.0))),
-                    child: _isLoading
+                    child: _logic.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text("Verifikasi",
                             style: TextStyle(
