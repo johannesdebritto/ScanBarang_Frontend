@@ -63,6 +63,13 @@ class _BottomNavBarState extends State<BottomNavBar> {
             ),
             BottomNavigationBarItem(
               icon: _buildIcon(
+                icon: Iconsax.box_outline,
+                isSelected: widget.currentIndex == 1,
+              ),
+              label: 'Barang',
+            ),
+            BottomNavigationBarItem(
+              icon: _buildIcon(
                 icon: Iconsax.clock_outline,
                 isSelected: widget.currentIndex == 2,
               ),

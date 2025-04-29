@@ -1,3 +1,4 @@
+import 'package:aplikasi_scan_barang/pages/barangpages/display_barang.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -66,6 +67,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = [
     BerandaScreen(),
+    DisplayBarangScreen(), // 🆕 Tambahkan di sini
     HistoryScreen(),
   ];
 

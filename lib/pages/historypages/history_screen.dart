@@ -5,6 +5,7 @@ import 'package:aplikasi_scan_barang/widgets/custom_app_bar.dart';
 import 'package:aplikasi_scan_barang/pages/berandapages/beranda_card.dart';
 import 'package:aplikasi_scan_barang/pages/berandapages/detail_event.dart';
 import 'package:aplikasi_scan_barang/pages/event/event.dart';
+import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -25,8 +26,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     'Terbaru ke Terlama',
     'Terlama ke Terbaru',
   ];
-  String? _selectedFilter;
-  String _searchQuery = ''; // 🔍 Simpan keyword pencarian
+  String? _selectedFilter = 'Semua';
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -113,16 +114,106 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() {
       _selectedFilter = filter;
     });
-    // bisa tambah logika filter nanti
   }
 
-  // 🔍 Auto Filter berdasarkan input search
+//filter
   List<dynamic> get _filteredEvents {
-    if (_searchQuery.isEmpty) return _events;
-    return _events.where((event) {
-      final name = (event['nama_event'] ?? '').toString().toLowerCase();
-      return name.contains(_searchQuery);
-    }).toList();
+    List<dynamic> filtered = _events;
+
+    // 🔍 Filter berdasarkan keyword search
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((event) {
+        final name = (event['nama_event'] ?? '').toString().toLowerCase();
+        return name.contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+
+    // 📅 Dapatkan tanggal sekarang
+    DateTime now = DateTime.now();
+
+    print("🔍 Filter aktif: $_selectedFilter | Query: $_searchQuery");
+
+    // 📆 Filter Hari Ini
+    if (_selectedFilter == 'Hari Ini') {
+      filtered = filtered.where((event) {
+        try {
+          final date = DateTime.parse(event['tanggal']);
+          return date.year == now.year &&
+              date.month == now.month &&
+              date.day == now.day;
+        } catch (e) {
+          print(
+              '❌ Error parsing tanggal (Hari Ini): ${event['tanggal']} | Error: $e');
+          return false;
+        }
+      }).toList();
+    }
+
+    // 📆 Filter 7 Hari Terakhir
+    else if (_selectedFilter == '7 Hari Terakhir') {
+      filtered = filtered.where((event) {
+        try {
+          final date = DateTime.parse(event['tanggal']);
+          return date.isAfter(now.subtract(Duration(days: 7))) &&
+              date.isBefore(now.add(Duration(days: 1)));
+        } catch (e) {
+          print(
+              '❌ Error parsing tanggal (7 Hari): ${event['tanggal']} | Error: $e');
+          return false;
+        }
+      }).toList();
+    }
+
+    // 🔃 Urutkan Terbaru ke Terlama atau sebaliknya
+    else if (_selectedFilter == 'Terbaru ke Terlama' ||
+        _selectedFilter == 'Terlama ke Terbaru') {
+      filtered.sort((a, b) {
+        try {
+          final tanggalA = a['tanggal'];
+          final waktuA = a['waktu_dibuat'] ?? '00:00:00';
+
+          final tanggalB = b['tanggal'];
+          final waktuB = b['waktu_dibuat'] ?? '00:00:00';
+
+          final dateA = DateTime.parse(tanggalA);
+          final timeA = TimeOfDay(
+            hour: int.parse(waktuA.split(':')[0]),
+            minute: int.parse(waktuA.split(':')[1]),
+          );
+          final dtA = DateTime(
+            dateA.year,
+            dateA.month,
+            dateA.day,
+            timeA.hour,
+            timeA.minute,
+          );
+
+          final dateB = DateTime.parse(tanggalB);
+          final timeB = TimeOfDay(
+            hour: int.parse(waktuB.split(':')[0]),
+            minute: int.parse(waktuB.split(':')[1]),
+          );
+          final dtB = DateTime(
+            dateB.year,
+            dateB.month,
+            dateB.day,
+            timeB.hour,
+            timeB.minute,
+          );
+
+          return _selectedFilter == 'Terlama ke Terbaru'
+              ? dtA.compareTo(dtB)
+              : dtB.compareTo(dtA);
+        } catch (e) {
+          print('❌ Error parsing sort $_selectedFilter: $e');
+          print('${a['tanggal']} ${a['waktu_dibuat']}');
+          return 0;
+        }
+      });
+    }
+
+    print("📦 Jumlah hasil akhir: ${filtered.length}");
+    return filtered;
   }
 
   @override
@@ -139,8 +230,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   onFilterSelected: _onFilterSelected,
                   onSearchChanged: (value) {
                     setState(() {
-                      _searchQuery =
-                          value.toLowerCase(); // Simpan keyword search
+                      _searchQuery = value.toLowerCase();
                     });
                   },
                 ),
@@ -171,7 +261,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 onDetailPressed: _navigateToDetail,
                                 onEditPressed: _navigateToEdit,
                                 disableDetailButton: true,
-                                fromHistory: true, // ⬅️ Tambahkan ini
+                                fromHistory: true,
                               );
                             },
                           ),

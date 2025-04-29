@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'image_picker_options.dart'; // Import the new file
 
 class UploadImageWidget extends StatefulWidget {
   final Function(File?) onImagePicked;
@@ -28,98 +28,18 @@ class _UploadImageWidgetState extends State<UploadImageWidget> {
     _displayImageUrl = widget.initialImageUrl;
   }
 
+  Text _poppinsText(String text, double size, FontWeight weight, Color color) {
+    return Text(
+      text,
+      style:
+          GoogleFonts.poppins(fontSize: size, fontWeight: weight, color: color),
+    );
+  }
+
   Future<void> _showImagePickerOptions() async {
-    showDialog(
+    await ImagePickerOptions.show(
       context: context,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "Pilih Sumber Gambar",
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildOptionButton(
-                      assetPath: 'assets/foto.svg',
-                      label: "Kamera",
-                      onTap: () => _pickImage(ImageSource.camera),
-                    ),
-                    _buildOptionButton(
-                      assetPath: 'assets/galeri.svg',
-                      label: "Galeri",
-                      onTap: () => _pickImage(ImageSource.gallery),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildBackButton(),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildOptionButton({
-    required String assetPath,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: SvgPicture.asset(
-        assetPath,
-        height: 24,
-        width: 24,
-      ),
-      label: Text(
-        label,
-        style: GoogleFonts.inter(fontSize: 14, color: Colors.black),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        elevation: 3,
-        shadowColor: Colors.black26,
-        side: const BorderSide(color: Colors.black54),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBackButton() {
-    return ElevatedButton(
-      onPressed: () => Navigator.pop(context),
-      child: Text(
-        "Kembali",
-        style: GoogleFonts.inter(fontSize: 14, color: Colors.white),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF7F56D9),
-        elevation: 3,
-        shadowColor: Colors.black26,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
+      onSourceSelected: _pickImage,
     );
   }
 
@@ -132,75 +52,90 @@ class _UploadImageWidgetState extends State<UploadImageWidget> {
       });
       widget.onImagePicked(_image);
     }
-    Navigator.pop(context);
+    // Hapus atau biarkan tanpa Navigator.pop(context)
+  }
+
+  Widget _imagePreview() {
+    final borderRadius = BorderRadius.circular(16);
+    Widget? imageWidget;
+
+    if (_image != null) {
+      imageWidget = Image.file(_image!, fit: BoxFit.cover);
+    } else if (_displayImageUrl != null) {
+      imageWidget = Image.network(_displayImageUrl!, fit: BoxFit.cover);
+    }
+
+    return GestureDetector(
+      onTap: _showImagePickerOptions,
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
+          color: Colors.grey[50],
+        ),
+        child: imageWidget != null
+            ? ClipRRect(borderRadius: borderRadius, child: imageWidget)
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6C56F5).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.cloud_upload_outlined,
+                        size: 40, color: Color(0xFF6C56F5)),
+                  ),
+                  const SizedBox(height: 16),
+                  _poppinsText("Upload Product Image", 16, FontWeight.w500,
+                      Colors.black87),
+                  const SizedBox(height: 8),
+                  _poppinsText("Recommended size: 800x800px", 12,
+                      FontWeight.normal, Colors.grey),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _successMessage() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4CAF50).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 20),
+          const SizedBox(width: 8),
+          _poppinsText("Image uploaded successfully", 14, FontWeight.w500,
+              const Color(0xFF4CAF50)),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = _image != null || _displayImageUrl != null;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Upload Gambar Barang",
-          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _showImagePickerOptions,
-          child: Container(
-            width: 300,
-            height: 180,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF3a0ca3), width: 1.5),
-              borderRadius: BorderRadius.circular(10),
-              color: Colors.white,
-            ),
-            child: _image != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.file(_image!,
-                        width: 300, height: 180, fit: BoxFit.cover),
-                  )
-                : _displayImageUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(_displayImageUrl!,
-                            width: 300, height: 180, fit: BoxFit.cover),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.image,
-                              size: 40, color: Colors.black54),
-                          const SizedBox(height: 5),
-                          Text("Pilih Gambar/Foto",
-                              style: GoogleFonts.inter(
-                                  fontSize: 14, color: Colors.black54)),
-                        ],
-                      ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (_image != null || _displayImageUrl != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.green[300],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 5),
-                Text(
-                  "Gambar berhasil di-upload",
-                  style: GoogleFonts.inter(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
+        _poppinsText("Product Image", 16, FontWeight.w600, Colors.black87),
+        const SizedBox(height: 12),
+        _imagePreview(),
+        if (hasImage) ...[
+          const SizedBox(height: 12),
+          _successMessage(),
+        ],
       ],
     );
   }
