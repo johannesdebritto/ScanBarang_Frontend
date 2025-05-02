@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,8 +7,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:aplikasi_scan_barang/main.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 
 class TambahBarangLogic {
   final BuildContext context;
@@ -32,35 +29,6 @@ class TambahBarangLogic {
       final uploadUri = _getUploadUri(isEdit, itemId);
       final request = _createMultipartRequest(uploadUri, token, isEdit);
 
-      File? qrCodeFile;
-      if (!isEdit) {
-        final qrData = {
-          'name': formData['name'],
-          'quantity': formData['quantity'],
-          'brand': formData['brand'],
-          'code': formData['code'],
-          'image_url': selectedImage != null ? selectedImage.path : null,
-        };
-        final qrDataString = jsonEncode(qrData);
-
-        qrCodeFile = await _generateHighQualityQRCode(qrDataString);
-        if (qrCodeFile == null) {
-          throw Exception("Gagal membuat QR Code");
-        }
-      }
-
-      if (qrCodeFile != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'qr_code_image',
-            qrCodeFile.path,
-            contentType: MediaType('image', 'png'),
-          ),
-        );
-        print('🖨️ [Upload Barang] QR Code ditambahkan ke request');
-        print('📍 Path QR Code: ${qrCodeFile.path}');
-      }
-
       if (selectedImage != null) {
         request.files.add(
           await http.MultipartFile.fromPath(
@@ -75,7 +43,37 @@ class TambahBarangLogic {
       _addFormFields(request, formData);
 
       final response = await request.send();
-      await _handleResponse(response, isEdit);
+      final responseBody = await response.stream.bytesToString();
+
+      print('📡 Response: $responseBody');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ [Upload Barang] Barang berhasil diupload!');
+        if (!context.mounted) return;
+
+        final responseJson = jsonDecode(responseBody);
+        final qrCodeUrl = responseJson[
+            'qrCodeUrl']; // Bisa digunakan untuk tampilkan gambar QR
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isEdit
+                ? 'Barang berhasil diperbarui!'
+                : 'Barang berhasil disimpan!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const MainScreen(selectedIndex: 1)),
+          (Route<dynamic> route) => false,
+        );
+      } else {
+        throw Exception(
+            "Gagal ${isEdit ? 'memperbarui' : 'menyimpan'} barang! Status: ${response.statusCode}");
+      }
     } catch (e) {
       print("❌ [Upload Barang] Error: $e");
       showWarningDialog('Gagal upload barang: ${e.toString()}');
@@ -114,71 +112,6 @@ class TambahBarangLogic {
     request.headers['Authorization'] = 'Bearer $token';
     request.headers['Accept'] = 'application/json';
     return request;
-  }
-
-  Future<File?> _generateHighQualityQRCode(String qrCodeData) async {
-    try {
-      if (qrCodeData.isEmpty) {
-        print('⚠️ Data QR Code kosong!');
-        return null;
-      }
-      print('🔠 Data QR Code: $qrCodeData');
-
-      final qrPainter = QrPainter(
-        data: qrCodeData,
-        version: QrVersions.auto,
-        gapless: true,
-        errorCorrectionLevel: QrErrorCorrectLevel.H,
-        color: Colors.black,
-        emptyColor: Colors.white,
-      );
-
-      const double qrSize = 800.0;
-      const double padding = 100.0;
-      const double totalSize = qrSize + (padding * 2);
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(
-        recorder,
-        Rect.fromPoints(Offset(0, 0), Offset(totalSize, totalSize)),
-      );
-
-      final paint = Paint()..color = Colors.white;
-      canvas.drawRect(Rect.fromLTWH(0, 0, totalSize, totalSize), paint);
-      canvas.translate(padding, padding);
-
-      qrPainter.paint(
-        canvas,
-        Size(qrSize, qrSize),
-      );
-
-      final picture = recorder.endRecording();
-      final img = await picture.toImage(totalSize.toInt(), totalSize.toInt());
-      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-
-      if (byteData == null) {
-        print('❌ Gagal mengubah QR ke byte data');
-        return null;
-      }
-
-      final directory = await getTemporaryDirectory();
-      final path =
-          '${directory.path}/qr_code_${DateTime.now().millisecondsSinceEpoch}.png';
-      final file = File(path);
-      await file.writeAsBytes(byteData.buffer.asUint8List());
-
-      if (!await file.exists()) {
-        print('❌ File QR Code tidak terbuat');
-        return null;
-      }
-
-      print(
-          '✅ QR Code berhasil dibuat! Ukuran file: ${file.lengthSync()} bytes');
-      return file;
-    } catch (e) {
-      print('❌ Error saat membuat QR Code: $e');
-      return null;
-    }
   }
 
   void _addFormFields(

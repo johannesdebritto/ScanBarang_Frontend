@@ -10,7 +10,7 @@ class EventCard extends StatefulWidget {
   final Function(String, bool) onDetailPressed;
   final Function(String) onEditPressed;
   final bool disableDetailButton;
-  final bool fromHistory; // ✅ Tambahan
+  final bool fromHistory;
 
   const EventCard({
     super.key,
@@ -19,7 +19,7 @@ class EventCard extends StatefulWidget {
     required this.onDetailPressed,
     required this.onEditPressed,
     this.disableDetailButton = false,
-    this.fromHistory = false, // ✅ Default false
+    this.fromHistory = false,
   });
 
   @override
@@ -27,8 +27,23 @@ class EventCard extends StatefulWidget {
 }
 
 class _EventCardState extends State<EventCard> {
-  String _formatDate(String date) =>
-      DateFormat('d-M-yyyy').format(DateTime.parse(date));
+  String _formatDate(String? date) {
+    if (date == null) return '-';
+    try {
+      return DateFormat('d-M-yyyy').format(DateTime.parse(date));
+    } catch (e) {
+      return '-';
+    }
+  }
+
+  String _formatTime(String? time) {
+    if (time == null) return '-';
+    try {
+      return DateFormat('HH:mm').format(DateTime.parse("2000-01-01 $time"));
+    } catch (e) {
+      return '-';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +64,12 @@ class _EventCardState extends State<EventCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildEventHeader(),
-            _buildEventDetails(),
+            const SizedBox(height: 8),
+            _buildLocation(),
+            const SizedBox(height: 6),
+            _buildStatus(),
+            const SizedBox(height: 8),
+            _buildDateTimeRow(),
             const Divider(),
             BerandaButton(
               onDetailPressed: () {
@@ -67,7 +87,7 @@ class _EventCardState extends State<EventCard> {
               onEditPressed: () =>
                   widget.onEditPressed(widget.event['id_event'].toString()),
               disableDetailButton: widget.disableDetailButton,
-              fromHistory: widget.fromHistory, // ✅ Dikirim ke tombol
+              fromHistory: widget.fromHistory,
             ),
           ],
         ),
@@ -84,9 +104,9 @@ class _EventCardState extends State<EventCard> {
             Icon(LucideIcons.bookCopy, color: Colors.black, size: 24),
             const SizedBox(width: 8),
             Text(
-              widget.event['nama_event'],
+              "Nama Event: ${widget.event['nama_event']}",
               style:
-                  GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold),
+                  GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -106,50 +126,121 @@ class _EventCardState extends State<EventCard> {
     );
   }
 
-  Widget _buildEventDetails() {
+  Widget _buildLocation() {
+    return Row(
+      children: [
+        Icon(Icons.location_on, color: Colors.green, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            "Lokasi: ${widget.event['kota']}, ${widget.event['kabupaten']}",
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.bold, // Memperbesar ukuran teks
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatus() {
     int? idStatus = widget.event['id_status'];
     Color statusBgColor;
+    String statusText = widget.event['status']?.toString().toUpperCase() ?? '';
+    Color statusColor = Colors.black; // Default text color
+    IconData statusIcon;
 
+    // Tentukan warna status, ikon dan background berdasarkan idStatus
     if (idStatus == 2) {
-      statusBgColor = Colors.orangeAccent;
+      statusBgColor = Colors.orangeAccent.withOpacity(0.2);
+      statusColor = Colors.orangeAccent;
+      statusIcon = LucideIcons.loader; // Ikon loader
     } else if (idStatus == 1) {
-      statusBgColor = Colors.green;
+      statusBgColor = Colors.green.withOpacity(0.2);
+      statusColor = Colors.green;
+      statusIcon = LucideIcons.badgeCheck; // Ikon loader
     } else {
-      statusBgColor = Colors.grey;
+      statusBgColor = Colors.grey.withOpacity(0.2);
+      statusColor = Colors.grey;
+      statusIcon = Icons.error; // Ikon error untuk status belum dimulai
     }
 
-    return Column(
-      children: [
-        _buildDetailRow(
-          Icons.date_range,
-          _formatDate(widget.event['tanggal']),
-          iconColor: Colors.orangeAccent,
-        ),
-        _buildDetailRow(
-          Icons.location_on,
-          "${widget.event['kota']}, ${widget.event['kabupaten']}",
-          iconColor: Colors.green,
-        ),
-        Row(
-          children: [
-            Icon(Icons.info, color: Colors.lightBlue),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: statusBgColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                widget.event['status'] ?? '',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+    return Padding(
+      padding: const EdgeInsets.only(left: 2),
+      child: Row(
+        children: [
+          Icon(
+            statusIcon,
+            color: statusColor,
+            size: 18, // Ukuran ikon bisa disesuaikan
+          ),
+          const SizedBox(width: 8), // Jarak antara ikon dan teks
+          Text(
+            "Status Tugas: ",
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            decoration: BoxDecoration(
+              color: statusBgColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              statusText,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: statusColor,
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateTimeRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow(
+                Icons.date_range,
+                "Tanggal Mulai:\n${_formatDate(widget.event['tanggal'])}",
+                iconColor: Colors.purple,
+              ),
+              _buildDetailRow(
+                Icons.access_time,
+                "Waktu Mulai:\n${_formatTime(widget.event['waktu_dibuat'])} WIB",
+                iconColor: Colors.purple,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow(
+                Icons.event_available,
+                "Tanggal Selesai:\n${_formatDate(widget.event['tanggal_selesai'])}",
+                iconColor: Colors.indigo,
+              ),
+              _buildDetailRow(
+                Icons.access_time_filled,
+                "Waktu Selesai:\n${_formatTime(widget.event['waktu_selesai'])} WIB",
+                iconColor: Colors.indigo,
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -158,14 +249,19 @@ class _EventCardState extends State<EventCard> {
   Widget _buildDetailRow(IconData icon, String text,
       {TextStyle? textStyle, Color iconColor = Colors.black}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Icon(icon, size: 24, color: iconColor),
-          const SizedBox(width: 8),
-          Text(text,
+          Icon(icon, size: 18, color: iconColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
               style: textStyle ??
-                  GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w500)),
+                  GoogleFonts.inter(
+                      fontSize: 13.5, fontWeight: FontWeight.w500),
+            ),
+          ),
         ],
       ),
     );

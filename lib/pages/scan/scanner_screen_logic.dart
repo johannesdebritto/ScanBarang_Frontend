@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:aplikasi_scan_barang/main.dart';
-
 import 'package:aplikasi_scan_barang/pages/berandapages/detail_event.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -89,10 +88,36 @@ class ScannerScreenLogic {
     }
   }
 
+/////////////////////////////////////////////////////////////////////////////////
+
   void showResultDialog(String result, bool isSelesai) {
     String title = isSelesai ? "Barang Selesai" : "Hasil Scan";
     String buttonText = isSelesai ? "Selesai" : "Simpan";
-    String displayText = isSelesai ? "Barang selesai digunakan" : result;
+    String displayText;
+
+    final Map<String, String> icons = {
+      'nama': '📦',
+      'quantity': '🔢',
+      'code': '🆔',
+      'brand': '🏷️',
+      'image': '🖼️', // Placeholder untuk image
+    };
+
+    try {
+      final decoded = jsonDecode(result);
+      if (decoded is Map<String, dynamic>) {
+        displayText = decoded.entries.map((e) {
+          final keyLower = e.key.toLowerCase();
+          final icon = icons.containsKey(keyLower) ? icons[keyLower]! : '🔹';
+          final label = _capitalize(e.key).padRight(8);
+          return "$icon $label: ${e.value}";
+        }).join("\n");
+      } else {
+        displayText = result;
+      }
+    } catch (e) {
+      displayText = result;
+    }
 
     showDialog(
       context: context,
@@ -102,6 +127,7 @@ class ScannerScreenLogic {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -116,7 +142,13 @@ class ScannerScreenLogic {
             ),
             Divider(color: Colors.grey[300], thickness: 1),
             SizedBox(height: 16),
-            Text(displayText, style: TextStyle(fontSize: 16)),
+            Text(
+              displayText,
+              style: TextStyle(
+                fontSize: 16,
+                fontFamily: 'inter',
+              ),
+            ),
             SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -124,24 +156,18 @@ class ScannerScreenLogic {
                 dialogButton("Batal", Colors.red, closeDialog),
                 SizedBox(width: 8),
                 dialogButton(buttonText, Colors.green, () async {
-                  closeDialog(); // Tutup modal sebelum mulai proses
-
-                  // Lanjutkan proses jika idEvent tidak kosong hanya untuk completeQRCode
+                  closeDialog();
                   if (isSelesai) {
                     if (idEvent.isEmpty) {
-                      // Jika idEvent kosong, tampilkan pesan error
-                      print("❌ Error: idEvent is empty");
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content: Text("❌ ID Event tidak valid: ID kosong")),
                       );
-                      return; // Keluar dari fungsi jika idEvent kosong
+                      return;
                     }
-                    await completeQRCode(result, idEvent,
-                        context); // Gunakan idEvent yang masih String
+                    await completeQRCode(result, idEvent, context);
                   } else {
-                    await sendScanResult(
-                        result); // Menyimpan QR Code tanpa memerlukan idEvent
+                    await sendScanResult(result);
                   }
                 }),
               ],
@@ -151,6 +177,12 @@ class ScannerScreenLogic {
       ),
     );
   }
+
+  String _capitalize(String input) {
+    return input.isEmpty ? input : input[0].toUpperCase() + input.substring(1);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   Widget dialogButton(String text, Color color, VoidCallback onPressed) {
     return TextButton(

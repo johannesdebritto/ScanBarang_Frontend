@@ -12,6 +12,9 @@ class ProductImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🟢 🟢  Product Image URL: $imageUrl');
+    debugPrint('🔳 QR Code URL: $qrCodeUrl');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

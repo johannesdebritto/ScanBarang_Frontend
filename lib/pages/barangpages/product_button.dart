@@ -15,30 +15,50 @@ class ProductButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildActionButton(
-          context,
-          icon: Icons.edit_outlined,
-          label: 'Edit',
-          color: Colors.purple.shade900,
-          onTap: () {
-            Navigator.push(
+        // Row untuk tombol Edit dan Hapus
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildActionButton(
               context,
-              MaterialPageRoute(
-                builder: (context) => TambahBarangScreen(itemData: itemData),
-              ),
-            );
-          },
+              icon: Icons.edit_outlined,
+              label: 'Edit',
+              color: Colors.purple.shade900,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        TambahBarangScreen(itemData: itemData),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 12),
+            _buildActionButton(
+              context,
+              icon: Icons.delete_outline,
+              label: 'Hapus',
+              color: Colors.red.shade900,
+              onTap: () {
+                showDeleteConfirmationDialog(
+                    context: context, onDelete: onDelete);
+              },
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
+        const SizedBox(height: 12),
+        // Tombol Download QR diletakkan terpisah
         _buildActionButton(
           context,
-          icon: Icons.delete_outline,
-          label: 'Hapus',
-          color: Colors.red.shade900,
+          icon: Icons.qr_code_2_outlined,
+          label: 'Download QR',
+          color: Colors.blue.shade900,
           onTap: () {
-            showDeleteConfirmationDialog(context: context, onDelete: onDelete);
+            // Kosong dulu
           },
         ),
       ],
@@ -59,7 +79,7 @@ class ProductButtons extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(1)),
+          border: Border.all(color: color),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

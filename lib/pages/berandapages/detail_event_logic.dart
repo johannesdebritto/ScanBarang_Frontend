@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -101,5 +102,13 @@ class DetailEventLogic {
   String formatTanggal(String tanggal) {
     DateTime dateTime = DateTime.parse(tanggal);
     return "${dateTime.day}-${dateTime.month}-${dateTime.year}";
+  }
+
+  String formatWaktu(String waktu) {
+    final time = TimeOfDay(
+      hour: int.parse(waktu.split(":")[0]),
+      minute: int.parse(waktu.split(":")[1]),
+    );
+    return "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
   }
 }
