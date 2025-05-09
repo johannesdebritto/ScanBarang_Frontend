@@ -60,7 +60,10 @@ class ProductCard extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildDetailSection(),
                     const SizedBox(height: 12),
-                    ProductButtons(onDelete: onDelete, itemData: itemData),
+                    ProductButtons(
+                      onDelete: onDelete,
+                      itemData: itemData,
+                    ),
                   ],
                 ),
               ),

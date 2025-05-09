@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen>
         child: FadeTransition(
           opacity: _animation!,
           child: Image.asset(
-            'assets/logo1.png', // Ganti dengan path gambar Anda
+            'assets/logo_fix.png', // Ganti dengan path gambar Anda
             width: size.width * 0.6, // Ukuran gambar bisa disesuaikan
             height: size.height * 0.4, // Ukuran gambar bisa disesuaikan
           ),
